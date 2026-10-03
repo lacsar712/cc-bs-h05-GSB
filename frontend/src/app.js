@@ -267,8 +267,8 @@ const App = {
               ? state.rows.map((r) =>
                   m("tr", { key: r.id }, [
                     m("td", r.id),
-                    m("td", r.microstrain), /* h05-trap-cols */
                     m("td", r.span_code),
+                    m("td", r.microstrain),
                     m("td", [
                       m(
                         "span",

@@ -19,9 +19,40 @@ CREATE TABLE IF NOT EXISTS strain_readings (
     status text NOT NULL DEFAULT 'pending',
     created_by text NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now(),
-    processed_at timestamptz
+    processed_at timestamptz,
+    CONSTRAINT chk_span_is_label CHECK (
+        length(btrim(span_code)) > 0
+        AND btrim(span_code) !~ '^[0-9.+-]+$'
+    ),
+    CONSTRAINT chk_microstrain_number CHECK (
+        microstrain = microstrain
+        AND microstrain > -1.0e9
+        AND microstrain < 1.0e9
+    )
 );
 CREATE INDEX IF NOT EXISTS idx_strain_readings_status ON strain_readings (status, id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_span_is_label'
+    ) THEN
+        ALTER TABLE strain_readings
+            ADD CONSTRAINT chk_span_is_label CHECK (
+                length(btrim(span_code)) > 0
+                AND btrim(span_code) !~ '^[0-9.+-]+$'
+            );
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_microstrain_number'
+    ) THEN
+        ALTER TABLE strain_readings
+            ADD CONSTRAINT chk_microstrain_number CHECK (
+                microstrain = microstrain
+                AND microstrain > -1.0e9
+                AND microstrain < 1.0e9
+            );
+    END IF;
+END $$;
 """
 
 

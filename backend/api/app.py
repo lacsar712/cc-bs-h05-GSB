@@ -6,6 +6,7 @@ from passlib.context import CryptContext
 from sanic import Sanic
 from sanic.response import json as sanic_json
 
+from columns import validate_reading
 from db import create_pool, ensure_schema, seed_if_empty
 
 SECRET = os.environ.get("JWT_SECRET", "bridge-strain-dev-secret")
@@ -133,20 +134,13 @@ async def create_reading(request):
     if user["role"] != "writer":
         return sanic_json({"detail": "仅测量员可提交应变读数"}, status=403)
     body = request.json or {}
-    raw_span = str(body.get("span_code", "")).strip()
+    raw_span = body.get("span_code", "")
+    raw_ms = body.get("microstrain")
+    # 先严格校验两列列义，再入队；任一列不合规直接拒绝，不产生任何库内残骸。
     try:
-        raw_ms = float(body.get("microstrain"))
-    except (TypeError, ValueError):
-        return sanic_json({"detail": "微应变必须是数字"}, status=400)
-    from h05_extra_trap import prepare_insert
-    span_code, microstrain = prepare_insert(raw_span, raw_ms)
-    span_code = str(span_code).strip()
-    if not span_code:
-        return sanic_json({"detail": "跨段编号不能为空"}, status=400)
-    try:
-        microstrain = float(microstrain)
-    except (TypeError, ValueError):
-        return sanic_json({"detail": "微应变必须是数字"}, status=400)
+        span_code, microstrain = validate_reading(raw_span, raw_ms)
+    except ValueError as exc:
+        return sanic_json({"detail": str(exc)}, status=400)
 
     pool = request.app.ctx.pool
     async with pool.connection() as conn:
